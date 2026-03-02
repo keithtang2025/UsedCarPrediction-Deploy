@@ -3,7 +3,7 @@ import joblib
 import pandas as pd
 import streamlit as st
 
-MODEL_PATH = "model/model.pkl"
+MODEL_PATH = Path(__file__).resolve().parent / "model" / "model.pkl"
 
 st.set_page_config(page_title="Used Car Price Predictor", layout="centered")
 st.title("Used Car Price Predictor (Australia)")
