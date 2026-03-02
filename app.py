@@ -1,41 +1,24 @@
-# app.py
+from pathlib import Path
 import joblib
-import pandas as pd
+import requests
 import streamlit as st
 
-MODEL_PATH = Path(__file__).resolve().parent / "model" / "model.pkl"
-
-st.set_page_config(page_title="Used Car Price Predictor", layout="centered")
-st.title("Used Car Price Predictor (Australia)")
+ROOT = Path(__file__).resolve().parent
+MODEL_PATH = ROOT / "model.pkl"
 
 @st.cache_resource
 def load_model():
+    model_url = st.secrets["MODEL_URL"]  # set in Streamlit secrets
+
+    if not MODEL_PATH.exists():
+        with st.spinner("Downloading model... (first run only)"):
+            r = requests.get(model_url, stream=True, timeout=300)
+            r.raise_for_status()
+            with open(MODEL_PATH, "wb") as f:
+                for chunk in r.iter_content(chunk_size=1024 * 1024):  # 1MB chunks
+                    if chunk:
+                        f.write(chunk)
+
     return joblib.load(MODEL_PATH)
 
 pipe = load_model()
-
-st.write("Enter a car’s details and get a predicted price.")
-
-# IMPORTANT: replace these example fields with the real columns your model expects
-brand = st.text_input("Brand", "Toyota")
-year = st.number_input("Year", min_value=1980, max_value=2026, value=2018)
-km = st.number_input("Odometer (km)", min_value=0, value=60000)
-transmission = st.selectbox("Transmission", ["Automatic", "Manual"])
-fuel = st.selectbox("Fuel", ["Petrol", "Diesel", "Hybrid", "Electric"])
-
-if st.button("Predict"):
-    X = pd.DataFrame([{
-        "Brand": brand,
-        "Year": year,
-        "Odometer": km,
-        "Transmission": transmission,
-        "FuelType": fuel,
-    }])
-
-    try:
-        pred = pipe.predict(X)[0]
-        st.success(f"Estimated price: ${pred:,.0f}")
-    except Exception as e:
-        st.error("Your input columns don’t match the model’s expected columns.")
-        st.code(str(e))
-        st.write("Fix: make `app.py` build a DataFrame with exactly the same columns used in training.")
